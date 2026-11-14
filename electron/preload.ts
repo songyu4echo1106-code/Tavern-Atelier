@@ -9,7 +9,11 @@ const api: AppApi = {
     remove: (id) => ipcRenderer.invoke('library:remove', id),
     restore: (id, version) => ipcRenderer.invoke('library:restore', id, version),
     import: () => ipcRenderer.invoke('library:import'),
+    importBlobs: (files) => ipcRenderer.invoke('library:import-blobs', files),
     export: (id, format) => ipcRenderer.invoke('library:export', id, format),
+    pickAvatar: () => ipcRenderer.invoke('library:pick-avatar'),
+    setAvatar: (id, avatar) => ipcRenderer.invoke('library:set-avatar', id, avatar),
+    imageData: (path) => ipcRenderer.invoke('library:image-data', path),
   },
   providers: {
     list: () => ipcRenderer.invoke('providers:list'),

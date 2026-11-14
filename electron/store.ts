@@ -19,11 +19,14 @@ export class Store {
   private data: PersistedData = { workspace: { assets: [], versions: {}, groups: [] }, providers: [], tests: [] };
   private file = '';
   private originals = '';
+  private avatars = '';
 
   init(): void {
     const root = path.join(app.getPath('userData'), 'atelier-data');
     this.originals = path.join(root, 'originals');
+    this.avatars = path.join(root, 'avatars');
     fs.mkdirSync(this.originals, { recursive: true });
+    fs.mkdirSync(this.avatars, { recursive: true });
     this.file = path.join(root, 'workspace.json');
     if (fs.existsSync(this.file)) this.data = JSON.parse(fs.readFileSync(this.file, 'utf8')) as PersistedData;
     if (!Array.isArray(this.data.workspace.groups)) this.data.workspace.groups = [];
@@ -35,6 +38,7 @@ export class Store {
       asset.summary = typeof asset.summary === 'string' ? asset.summary : '';
       asset.favorite = asset.favorite === true;
       asset.groupIds = Array.isArray(asset.groupIds) ? asset.groupIds : [];
+      if (asset.avatar && (asset.avatar.kind !== 'local' && asset.avatar.kind !== 'url')) delete asset.avatar;
     }
   }
 
@@ -122,6 +126,16 @@ export class Store {
     return String(data.name ?? data.comment ?? path.parse(filename).name);
   }
 
+  private ensureGroup(name: string): string {
+    const trimmed = name.trim();
+    if (!trimmed) return '';
+    const existing = this.data.workspace.groups.find((group) => group.name === trimmed);
+    if (existing) return existing.id;
+    const group: AssetGroup = { id: randomUUID(), name: trimmed, createdAt: new Date().toISOString() };
+    this.data.workspace.groups.push(group);
+    return group.id;
+  }
+
   private extractRelated(character: Asset): Asset[] {
     const related: Asset[] = [];
     const data = cardData(character.data);
@@ -168,6 +182,50 @@ export class Store {
     return related;
   }
 
+  private importBuffer(filename: string, buffer: Buffer): { imported: Asset[]; warnings: string[] } {
+    const imported: Asset[] = [];
+    const warnings: string[] = [];
+    const hash = fileHash(buffer);
+    if (this.data.workspace.assets.some((asset) => asset.fileHash === hash)) {
+      warnings.push(`${path.basename(filename)}：文件内容已存在，已跳过。`);
+      return { imported, warnings };
+    }
+    const ext = path.extname(filename).toLowerCase();
+    try {
+      const isPng = ext === '.png';
+      if (!isPng && ext !== '.json') throw new Error('不支持的文件类型，仅支持 PNG 或 JSON');
+      const parsed = isPng ? readCharacterPng(buffer) : { data: JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, '')) as Record<string, unknown>, warnings: [] };
+      if (!parsed.data || typeof parsed.data !== 'object' || Array.isArray(parsed.data)) throw new Error('JSON 顶层必须是对象');
+      const kind = isPng ? 'character' : this.detectKind(parsed.data);
+      const originalPath = path.join(this.originals, `${hash}${isPng ? '.png' : '.json'}`);
+      fs.writeFileSync(originalPath, buffer);
+      const asset = this.addAsset({
+        kind, name: this.nameFor(kind, parsed.data, filename), summary: '', tags: [], favorite: false,
+        data: parsed.data, sourceName: path.basename(filename), sourceFormat: isPng ? 'png' : 'json',
+        originalPath, fileHash: hash, relations: [],
+        ...(isPng ? { avatar: { kind: 'local' as const, value: originalPath } } : {}),
+      });
+      imported.push(asset);
+      if (kind === 'character') {
+        const related = this.extractRelated(asset);
+        imported.push(...related);
+        const groupId = this.ensureGroup(asset.name);
+        if (groupId) {
+          asset.groupIds = [...asset.groupIds, groupId];
+          for (const item of related) item.groupIds = [...item.groupIds, groupId];
+          this.data.workspace.versions[asset.id][0].groupIds = clone(asset.groupIds);
+          for (const item of related) this.data.workspace.versions[item.id][0].groupIds = clone(item.groupIds);
+        }
+        this.data.workspace.versions[asset.id][0].relations = clone(asset.relations);
+      }
+      if (kind === 'preset') imported.push(...this.extractPresetRelated(asset));
+      warnings.push(...parsed.warnings);
+    } catch (error) {
+      warnings.push(`${path.basename(filename)}：${error instanceof Error ? error.message : '导入失败'}`);
+    }
+    return { imported, warnings };
+  }
+
   async importFiles(): Promise<ImportResult | null> {
     const selected = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
@@ -177,34 +235,21 @@ export class Store {
     const imported: Asset[] = [];
     const warnings: string[] = [];
     for (const filename of selected.filePaths) {
-      const buffer = fs.readFileSync(filename);
-      const hash = fileHash(buffer);
-      if (this.data.workspace.assets.some((asset) => asset.fileHash === hash)) {
-        warnings.push(`${path.basename(filename)}：文件内容已存在，已跳过。`);
-        continue;
-      }
-      try {
-        const isPng = path.extname(filename).toLowerCase() === '.png';
-        const parsed = isPng ? readCharacterPng(buffer) : { data: JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, '')) as Record<string, unknown>, warnings: [] };
-        if (!parsed.data || typeof parsed.data !== 'object' || Array.isArray(parsed.data)) throw new Error('JSON 顶层必须是对象');
-        const kind = isPng ? 'character' : this.detectKind(parsed.data);
-        const originalPath = path.join(this.originals, `${hash}${isPng ? '.png' : '.json'}`);
-        fs.writeFileSync(originalPath, buffer);
-        const asset = this.addAsset({
-          kind, name: this.nameFor(kind, parsed.data, filename), summary: '', tags: [], favorite: false,
-          data: parsed.data, sourceName: path.basename(filename), sourceFormat: isPng ? 'png' : 'json',
-          originalPath, fileHash: hash, relations: [],
-        });
-        imported.push(asset);
-        if (kind === 'character') {
-          imported.push(...this.extractRelated(asset));
-          this.data.workspace.versions[asset.id][0].relations = clone(asset.relations);
-        }
-        if (kind === 'preset') imported.push(...this.extractPresetRelated(asset));
-        warnings.push(...parsed.warnings);
-      } catch (error) {
-        warnings.push(`${path.basename(filename)}：${error instanceof Error ? error.message : '导入失败'}`);
-      }
+      const result = this.importBuffer(filename, fs.readFileSync(filename));
+      imported.push(...result.imported);
+      warnings.push(...result.warnings);
+    }
+    if (imported.length) this.persist();
+    return { imported: clone(imported), warnings };
+  }
+
+  importBlobs(files: { name: string; data: string }[]): ImportResult {
+    const imported: Asset[] = [];
+    const warnings: string[] = [];
+    for (const file of files) {
+      const result = this.importBuffer(file.name, Buffer.from(file.data, 'base64'));
+      imported.push(...result.imported);
+      warnings.push(...result.warnings);
     }
     if (imported.length) this.persist();
     return { imported: clone(imported), warnings };
@@ -221,15 +266,54 @@ export class Store {
     });
     if (selected.canceled || !selected.filePath) return null;
     if (format === 'png') {
-      if (!asset.originalPath || asset.sourceFormat !== 'png' || !fs.existsSync(asset.originalPath)) {
-        throw new Error('该角色没有原始 PNG。请先导入 PNG 角色卡，或使用 JSON 导出。');
+      const imagePath = asset.avatar?.kind === 'local' && fs.existsSync(asset.avatar.value)
+        ? asset.avatar.value
+        : asset.originalPath && fs.existsSync(asset.originalPath)
+          ? asset.originalPath
+          : null;
+      if (!imagePath) {
+        throw new Error('该角色没有可用的底图。请导入 PNG 角色卡、设置本地头像，或使用 JSON 导出。');
       }
-      fs.writeFileSync(selected.filePath, writeCharacterPng(fs.readFileSync(asset.originalPath), asset.data));
+      fs.writeFileSync(selected.filePath, writeCharacterPng(fs.readFileSync(imagePath), asset.data));
     } else {
       const data = asset.kind === 'character' ? toV2Card(asset.data) : asset.data;
       fs.writeFileSync(selected.filePath, JSON.stringify(data, null, 2), 'utf8');
     }
     return selected.filePath;
+  }
+
+  async pickAvatar(): Promise<{ kind: 'local'; value: string } | null> {
+    const selected = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+    });
+    if (selected.canceled || !selected.filePaths[0]) return null;
+    const source = selected.filePaths[0];
+    const ext = path.extname(source).toLowerCase() || '.png';
+    const destination = path.join(this.avatars, `${randomUUID()}${ext}`);
+    fs.copyFileSync(source, destination);
+    return { kind: 'local', value: destination };
+  }
+
+  setAvatar(id: string, avatar: { kind: 'local' | 'url'; value: string } | null): Asset {
+    const asset = this.data.workspace.assets.find((item) => item.id === id);
+    if (!asset) throw new Error('素材不存在');
+    if (avatar === null) delete asset.avatar;
+    else asset.avatar = { kind: avatar.kind, value: avatar.value };
+    this.persist();
+    return clone(asset);
+  }
+
+  imageData(filePath: string): string | null {
+    const normalized = path.resolve(filePath);
+    const roots = [path.resolve(this.originals), path.resolve(this.avatars)];
+    if (!roots.some((root) => normalized === root || normalized.startsWith(root + path.sep))) return null;
+    if (!fs.existsSync(normalized)) return null;
+    const buffer = fs.readFileSync(normalized);
+    if (buffer.length > 20 * 1024 * 1024) return null;
+    const ext = path.extname(normalized).toLowerCase().replace('.', '');
+    const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/png';
+    return `data:${mime};base64,${buffer.toString('base64')}`;
   }
 
   private publicProviders(): PublicAiProvider[] {

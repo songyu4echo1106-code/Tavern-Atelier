@@ -22,6 +22,7 @@ export interface Asset {
   fileHash?: string;
   relations: AssetRelation[];
   groupIds: string[];
+  avatar?: { kind: 'local' | 'url'; value: string };
 }
 
 export interface AssetGroup {
@@ -42,6 +43,7 @@ export interface AssetVersion {
   relations: AssetRelation[];
   favorite: boolean;
   groupIds: string[];
+  avatar?: { kind: 'local' | 'url'; value: string };
 }
 
 export interface WorkspaceData {
@@ -87,6 +89,11 @@ export interface ImportResult {
   warnings: string[];
 }
 
+export interface ImportBlob {
+  name: string;
+  data: string;
+}
+
 export interface AppApi {
   library: {
     list: () => Promise<WorkspaceData>;
@@ -95,7 +102,11 @@ export interface AppApi {
     remove: (id: string) => Promise<void>;
     restore: (id: string, version: number) => Promise<Asset>;
     import: () => Promise<ImportResult | null>;
+    importBlobs: (files: ImportBlob[]) => Promise<ImportResult>;
     export: (id: string, format?: 'json' | 'png') => Promise<string | null>;
+    pickAvatar: () => Promise<{ kind: 'local'; value: string } | null>;
+    setAvatar: (id: string, avatar: { kind: 'local' | 'url'; value: string } | null) => Promise<Asset>;
+    imageData: (path: string) => Promise<string | null>;
   };
   providers: {
     list: () => Promise<PublicAiProvider[]>;

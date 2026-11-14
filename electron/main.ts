@@ -13,7 +13,11 @@ function registerIpc(): void {
   ipcMain.handle('library:remove', (_event, id: string) => store.remove(id));
   ipcMain.handle('library:restore', (_event, id: string, version: number) => store.restore(id, version));
   ipcMain.handle('library:import', () => store.importFiles());
+  ipcMain.handle('library:import-blobs', (_event, files: { name: string; data: string }[]) => store.importBlobs(files));
   ipcMain.handle('library:export', (_event, id: string, format?: 'json' | 'png') => store.exportAsset(id, format));
+  ipcMain.handle('library:pick-avatar', () => store.pickAvatar());
+  ipcMain.handle('library:set-avatar', (_event, id: string, avatar: { kind: 'local' | 'url'; value: string } | null) => store.setAvatar(id, avatar));
+  ipcMain.handle('library:image-data', (_event, filePath: string) => store.imageData(filePath));
   ipcMain.handle('providers:list', () => store.providers());
   ipcMain.handle('providers:save', (_event, provider: PublicAiProvider & { apiKey?: string }) => store.saveProvider(provider));
   ipcMain.handle('providers:remove', (_event, id: string) => store.removeProvider(id));
@@ -41,7 +45,8 @@ async function createWindow(): Promise<void> {
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(process.env.VITE_DEV_SERVER_URL ?? 'file://')) event.preventDefault();
+    const devUrl = process.env.VITE_DEV_SERVER_URL;
+    if (!devUrl || !url.startsWith(devUrl)) event.preventDefault();
   });
   if (process.env.VITE_DEV_SERVER_URL) await window.loadURL(process.env.VITE_DEV_SERVER_URL);
   else await window.loadFile(path.join(__dirname, '../../dist/index.html'));
