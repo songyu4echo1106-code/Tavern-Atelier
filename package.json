@@ -1,6 +1,6 @@
 {
   "name": "tavern-atelier",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Local-first SillyTavern creator workbench",
   "main": "dist-electron/electron/main.js",
