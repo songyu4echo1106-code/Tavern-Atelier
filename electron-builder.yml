@@ -1,0 +1,32 @@
+appId: app.tavern.atelier
+productName: 酒馆工坊
+executableName: TavernAtelier
+directories:
+  output: release
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+asar: true
+npmRebuild: false
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+win:
+  icon: build/icon.ico
+  artifactName: Tavern-Atelier-Portable-${version}-${arch}.${ext}
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  differentialPackage: false
+  useZip: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Tavern Atelier
+  uninstallDisplayName: Tavern Atelier
+  artifactName: Tavern-Atelier-Setup-${version}-${arch}.${ext}
