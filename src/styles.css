@@ -72,3 +72,12 @@
 .modal{background:linear-gradient(180deg,#f7faf8,#f4f1eb)}
 .modal>header h2{color:#255356}
 .remove-related-row input,.group-manager-row input{accent-color:#2f6b6a}
+
+.preset-import{display:grid;grid-template-columns:240px 1fr;gap:16px;padding-top:4px}
+.preset-source-row{display:flex;border-top:1px solid var(--line);padding:4px 2px}
+.preset-source-row button{flex:1;min-width:0;border:0;background:none;text-align:left;padding:9px;border-radius:7px}
+.preset-source-row button:hover{background:#eef3ef}
+.preset-source-row.active button{background:#e5eee8}
+.preset-source-row strong,.preset-source-row small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset-source-row strong{font-size:11px;color:#344b40}
+.preset-source-row small{font-size:9px;color:var(--muted);margin-top:3px}
