@@ -23,6 +23,21 @@ function findRegexIndex(scripts: Record<string, unknown>[], source: Record<strin
   return scripts.findIndex((script) => !script.id && script.scriptName === source.scriptName);
 }
 
+function bundlePreset(preset: Asset, assets: Asset[]): Record<string, unknown> {
+  const regexAssets = preset.relations
+    .filter((relation) => relation.type === 'preset-regex')
+    .flatMap((relation) => {
+      const asset = assets.find((item) => item.id === relation.targetId);
+      return asset && asset.kind === 'regex' ? [asset] : [];
+    });
+  if (regexAssets.length === 0) return preset.data;
+  const extensions = preset.data.extensions && typeof preset.data.extensions === 'object' && !Array.isArray(preset.data.extensions)
+    ? { ...(preset.data.extensions as Record<string, unknown>) }
+    : {};
+  extensions.regex_scripts = regexAssets.map((asset) => JSON.parse(JSON.stringify(asset.data)));
+  return { ...preset.data, extensions };
+}
+
 function bundleCharacter(character: Asset, assets: Asset[]): Record<string, unknown> {
   let data = character.data;
   const bookRelation = character.relations.find((relation) => relation.type === 'embedded-book');
@@ -150,7 +165,7 @@ export default function App() {
     if (!draft || exporting) return;
     setExporting(true);
     try {
-      const target = draft.kind === 'character' ? { ...draft, data: bundleCharacter(draft, workspace.assets) } : draft;
+      const target = draft.kind === 'character' ? { ...draft, data: bundleCharacter(draft, workspace.assets) } : draft.kind === 'preset' ? { ...draft, data: bundlePreset(draft, workspace.assets) } : draft;
       const persisted = workspace.assets.find((asset) => asset.id === target.id);
       const current = persisted ? JSON.stringify({ data: persisted.data, name: persisted.name, tags: persisted.tags, summary: persisted.summary, relations: persisted.relations, favorite: persisted.favorite }) : '';
       const edited = JSON.stringify({ data: target.data, name: target.name, tags: target.tags, summary: target.summary, relations: target.relations, favorite: target.favorite });
@@ -228,7 +243,31 @@ export default function App() {
       setDraft(saved); await refresh(); notify('已解除关联');
     } catch (reason) { notify(reason instanceof Error ? reason.message : String(reason), true); }
   };
-  const backup = async () => { const file = await window.tavern.backup.create(); if (file) notify(`备份已创建：${file}`); };
+  const linkRegexToPreset = async (regexId: string) => {
+    if (!draft || draft.kind !== 'preset') return;
+    const regex = workspace.assets.find((asset) => asset.id === regexId);
+    if (!regex || regex.kind !== 'regex') return;
+    try {
+      if (!regex.relations.some((relation) => relation.targetId === draft.id && relation.type === 'preset-regex')) {
+        await window.tavern.library.save({ ...regex, relations: [...regex.relations, { targetId: draft.id, type: 'preset-regex' }] }, `关联到预设“${draft.name}”`);
+      }
+      const relations = draft.relations.filter((relation) => relation.targetId !== regexId);
+      const saved = await window.tavern.library.save({ ...draft, relations: [...relations, { targetId: regexId, type: 'preset-regex' }] }, `关联正则“${regex.name}”`);
+      setDraft(saved); await refresh(); notify(`已关联 ${regex.name}`);
+    } catch (reason) { notify(reason instanceof Error ? reason.message : String(reason), true); }
+  };
+  const unlinkRegexFromPreset = async (regexId: string) => {
+    if (!draft) return;
+    const regex = workspace.assets.find((asset) => asset.id === regexId);
+    try {
+      if (regex) {
+        await window.tavern.library.save({ ...regex, relations: regex.relations.filter((relation) => relation.targetId !== draft.id) }, `解除与预设“${draft.name}”的关联`);
+      }
+      const saved = await window.tavern.library.save({ ...draft, relations: draft.relations.filter((relation) => relation.targetId !== regexId) }, `解除关联“${regex?.name ?? regexId}”`);
+      setDraft(saved); await refresh(); notify('已解除关联');
+    } catch (reason) { notify(reason instanceof Error ? reason.message : String(reason), true); }
+  };
+    const backup = async () => { const file = await window.tavern.backup.create(); if (file) notify(`备份已创建：${file}`); };
   const restoreBackup = async () => {
     if (!confirm('恢复会替换当前工作区。应用会先保留恢复前副本，是否继续？')) return;
     if (await window.tavern.backup.restore()) { await refresh(); setDraft(null); setView({ name: 'library', kind: 'all' }); notify('备份已恢复'); }
@@ -289,7 +328,7 @@ export default function App() {
     onDrop={handleDrop}
   ><aside className="sidebar"><button className="brand" onClick={() => navigate({ name: 'library', kind: 'all' })}><span className="brand-mark"><Fish size={20} /></span><span><strong>宋鱼 · 酒馆工坊</strong><small>SONGYU · TAVERN ATELIER</small></span></button><nav><button className={view.name === 'library' && view.kind === 'all' ? 'active' : ''} onClick={() => navigate({ name: 'library', kind: 'all' })}><LibraryBig size={18} /><span>素材库</span></button><div className="nav-label">创作工作台</div>{navItems.map(({ kind, icon: Icon }) => <button key={kind} className={view.name === 'library' && view.kind === kind || view.name === 'editor' && draft?.kind === kind ? 'active' : ''} onClick={() => navigate({ name: 'library', kind })}><Icon size={18} /><span>{kindNames[kind]}</span><small>{workspace.assets.filter((asset) => asset.kind === kind).length}</small></button>)}<div className="nav-label">调试与设置</div><button className={view.name === 'test' ? 'active' : ''} onClick={() => { setTestPreset(undefined); navigate({ name: 'test' }); }}><FlaskConical size={18} /><span>预设测试台</span></button><button className={view.name === 'settings' ? 'active' : ''} onClick={() => navigate({ name: 'settings' })}><SettingsIcon size={18} /><span>服务与数据</span></button></nav><div className="sidebar-bottom"><div className="local-card"><Archive size={17} /><div><strong>本地优先</strong><span><i className="status-dot" />数据已保存在本机</span></div></div><small>SONGYU ATELIER · v0.2</small></div></aside><main className="main-panel">
     {view.name === 'library' && <Library key={view.kind} assets={view.kind === 'all' ? workspace.assets : workspace.assets.filter((asset) => asset.kind === view.kind)} groups={workspace.groups} initialKind={view.kind} onOpen={open} onNew={create} onImport={importAssets} onCreateGroup={createGroup} onRenameGroup={renameGroup} onRemoveGroup={removeGroup} onUpdateGroups={updateAssetGroups} onDelete={requestDelete} />}
-    {view.name === 'editor' && draft && <div className="editor-page"><header className="editor-header"><Button variant="ghost" icon={<ChevronLeft size={18} />} onClick={() => navigate({ name: 'library', kind: draft.kind })}>返回</Button><div className="editor-title"><span>{kindNames[draft.kind]} · v{draft.currentVersion}</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} disabled={draft.kind === 'character' || draft.kind === 'regex'} /></div><div className="editor-actions"><Button icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>版本</Button><Button icon={<Download size={15} />} onClick={() => exportAsset('json')}>导出 JSON</Button>{draft.kind === 'character' && <Button icon={<Download size={15} />} onClick={() => exportAsset('png')}>导出 PNG</Button>}<Button variant="ghost" icon={<Trash2 size={16} />} onClick={requestRemove} /><Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={saving}>{saving ? '保存中…' : '保存新版本'}</Button><MoreHorizontal size={18} /></div></header>{draft.kind === 'character' && <CharacterEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onLink={linkAsset} onUnlink={unlinkAsset} onPickAvatar={pickAvatar} onSetAvatar={setAvatar} />}{draft.kind === 'lorebook' && <LorebookEditor asset={draft} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'regex' && <RegexEditor asset={draft} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'preset' && <PresetEditor asset={draft} providers={providers} onChange={setDraft} onTest={testCurrentPreset} />}</div>}
+    {view.name === 'editor' && draft && <div className="editor-page"><header className="editor-header"><Button variant="ghost" icon={<ChevronLeft size={18} />} onClick={() => navigate({ name: 'library', kind: draft.kind })}>返回</Button><div className="editor-title"><span>{kindNames[draft.kind]} · v{draft.currentVersion}</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} disabled={draft.kind === 'character' || draft.kind === 'regex'} /></div><div className="editor-actions"><Button icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>版本</Button><Button icon={<Download size={15} />} onClick={() => exportAsset('json')}>导出 JSON</Button>{draft.kind === 'character' && <Button icon={<Download size={15} />} onClick={() => exportAsset('png')}>导出 PNG</Button>}<Button variant="ghost" icon={<Trash2 size={16} />} onClick={requestRemove} /><Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={saving}>{saving ? '保存中…' : '保存新版本'}</Button><MoreHorizontal size={18} /></div></header>{draft.kind === 'character' && <CharacterEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onLink={linkAsset} onUnlink={unlinkAsset} onPickAvatar={pickAvatar} onSetAvatar={setAvatar} />}{draft.kind === 'lorebook' && <LorebookEditor asset={draft} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'regex' && <RegexEditor asset={draft} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'preset' && <PresetEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onTest={testCurrentPreset} onLinkRegex={linkRegexToPreset} onUnlinkRegex={unlinkRegexFromPreset} />}</div>}
     {view.name === 'test' && <TestLab assets={workspace.assets} providers={providers} initialPreset={testPreset} onOpenSettings={() => navigate({ name: 'settings' })} />}
     {view.name === 'settings' && <Settings providers={providers} onProviders={setProviders} onBackup={backup} onRestore={restoreBackup} notify={notify} />}
     </main>{dropActive && <div className="drop-overlay"><div className="drop-overlay-inner"><Upload size={38} /><strong>松开以导入素材</strong><span>自动识别角色卡、世界书、正则或 Chat 预设</span></div></div>}{importReport && <Modal title="导入结果" onClose={() => setImportReport(null)} wide><div className="import-report"><div className={`import-report-summary ${importReport.warnings.length ? "warn" : "ok"}`}>{importReport.imported.length > 0 ? <><CheckCircle2 size={18} /><span>成功导入 {importReport.imported.length} 份素材{importReport.warnings.length ? `，另有 ${importReport.warnings.length} 项警告` : ""}</span></> : <><TriangleAlert size={18} /><span>没有可导入的素材</span></>}</div>{importReport.imported.length > 0 && <div className="import-report-section"><span className="eyebrow">IMPORTED</span><ul>{importReport.imported.map((asset, index) => <li key={index}>{kindNames[asset.kind]} · {asset.name}</li>)}</ul></div>}{importReport.warnings.length > 0 && <div className="import-report-section"><span className="eyebrow">WARNINGS</span><ul className="warnings">{importReport.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}<div className="modal-footer"><Button variant="primary" onClick={() => setImportReport(null)}>知道了</Button></div></div></Modal>}{deleteTarget && <Modal title={`删除 ${kindNames[deleteTarget.kind]} · ${deleteTarget.name}`} onClose={() => setDeleteTarget(null)}><p className="remove-hint">删除时可同时删除它提取出的关联素材。不勾选则仅删除当前素材，关联素材会保留并归入“未分组”。</p><div className="remove-related">{relatedAssets.length ? <><div className="remove-select-all"><label><input type="checkbox" checked={relatedAssets.length > 0 && removeChecked.length === relatedAssets.length} onChange={(event) => setRemoveChecked(event.target.checked ? relatedAssets.map((asset) => asset.id) : [])} /><span>全选</span></label><span>{removeChecked.length} / {relatedAssets.length}</span></div>{relatedAssets.map((asset) => <label key={asset.id} className="remove-related-row"><input type="checkbox" checked={removeChecked.includes(asset.id)} onChange={(event) => setRemoveChecked(event.target.checked ? [...removeChecked, asset.id] : removeChecked.filter((id) => id !== asset.id))} /><span>{kindNames[asset.kind]} · {asset.name}</span></label>)}</> : <div className="small-empty">没有可一并删除的关联素材</div>}</div><div className="modal-footer"><Button onClick={() => setDeleteTarget(null)}>取消</Button><div className="form-actions"><Button onClick={() => { setRemoveChecked([]); void removeAsset(deleteTarget, relatedAssets, []); }}>仅删除当前素材</Button><Button variant="danger" disabled={removeChecked.length === 0} onClick={() => void removeAsset(deleteTarget, relatedAssets, removeChecked)}>删除及勾选素材</Button></div></div></Modal>}{historyOpen && draft && <VersionPanel versions={workspace.versions[draft.id] ?? []} onRestore={restore} onClose={() => setHistoryOpen(false)} />}{toast && <div className={`toast ${toast.error ? 'error' : ''}`}>{toast.error ? <XCircle size={18} /> : <CheckCircle2 size={18} />}<span>{toast.message}</span><button onClick={() => setToast(null)}>×</button></div>}</div>;
