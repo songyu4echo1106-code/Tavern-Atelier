@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ArrowLeft, BookOpen, Check, ChevronRight, FileText, X } from 'lucide-react';
 import type { Asset } from '../../shared/types';
 import { Modal, Button } from './UI';
@@ -125,27 +125,39 @@ function entriesForAsset(asset: Asset): ImportableEntry[] {
   return [];
 }
 
-// 三步选择器弹窗：选择来源种类(世界书/预设) -> 选择具体素材 -> 选择条目并预览正文
+// 三步选择器弹窗：选择来源种类(世界书/预设) -> 选择具体素材 -> 多选条目并预览正文
 export function EntryImportPicker(props: {
   assets: Asset[];
   currentAssetId: string;
   onClose: () => void;
-  onImport: (entry: Record<string, unknown>) => void;
+  onImport: (entries: Record<string, unknown>[]) => void;
 }): ReactNode {
   const [step, setStep] = useState<'kind' | 'asset' | 'entry'>('kind');
   const [kind, setKind] = useState<'lorebook' | 'preset' | null>(null);
   const [assetId, setAssetId] = useState('');
-  const [entryKey, setEntryKey] = useState('');
+  const [entryKeys, setEntryKeys] = useState<string[]>([]);
 
   const lorebooks = props.assets.filter((asset) => asset.kind === 'lorebook' && asset.id !== props.currentAssetId);
   const presets = props.assets.filter((asset) => asset.kind === 'preset' && asset.id !== props.currentAssetId);
   const sourceAssets = kind === 'lorebook' ? lorebooks : kind === 'preset' ? presets : [];
   const selectedAsset = sourceAssets.find((asset) => asset.id === assetId);
   const entries = selectedAsset ? entriesForAsset(selectedAsset) : [];
-  const selectedEntry = entries.find((entry) => entry.key === entryKey);
+  const selectedEntries = entryKeys.flatMap((key) => {
+    const entry = entries.find((item) => item.key === key);
+    return entry && !entry.disabled ? [entry] : [];
+  });
+  const previewEntry = entries.find((entry) => entry.key === entryKeys[entryKeys.length - 1]);
   const kindLabel = kind === 'lorebook' ? '世界书' : kind === 'preset' ? '预设' : '素材';
   const stepIndex = step === 'kind' ? 1 : step === 'asset' ? 2 : 3;
   const stepTitle = step === 'kind' ? '选择来源' : step === 'asset' ? `选择${kindLabel}` : '选择并预览条目';
+
+  const toggleEntry = (key: string) => {
+    const entry = entries.find((item) => item.key === key);
+    if (!entry || entry.disabled) return;
+    setEntryKeys((prev) => prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]);
+  };
+  const selectAll = () => setEntryKeys(entries.filter((entry) => !entry.disabled).map((entry) => entry.key));
+  const clearSelection = () => setEntryKeys([]);
 
   const goBack = () => {
     if (step === 'kind') {
@@ -154,31 +166,31 @@ export function EntryImportPicker(props: {
     }
     if (step === 'entry') {
       setStep('asset');
-      setEntryKey('');
+      setEntryKeys([]);
       return;
     }
     setStep('kind');
     setKind(null);
     setAssetId('');
-    setEntryKey('');
+    setEntryKeys([]);
   };
 
   const chooseKind = (nextKind: 'lorebook' | 'preset') => {
     setKind(nextKind);
     setAssetId('');
-    setEntryKey('');
+    setEntryKeys([]);
     setStep('asset');
   };
 
   const chooseAsset = (asset: Asset) => {
     setAssetId(asset.id);
-    setEntryKey('');
+    setEntryKeys([]);
     setStep('entry');
   };
 
   const confirmImport = () => {
-    if (!selectedEntry || selectedEntry.disabled) return;
-    props.onImport(selectedEntry.data);
+    if (!selectedEntries.length) return;
+    props.onImport(selectedEntries.map((entry) => entry.data));
     props.onClose();
   };
 
@@ -251,52 +263,61 @@ export function EntryImportPicker(props: {
               <div className="link-column-title">
                 <FileText size={15} />
                 条目列表
-                <span>{entries.length} 个条目</span>
+                <span>{selectedEntries.length} / {entries.length} 已选</span>
               </div>
-              {entries.length ? entries.map((entry) => (
-                <div
-                  className={`link-row ${entryKey === entry.key ? 'active' : ''} ${entry.disabled ? 'disabled' : ''}`}
-                  key={entry.key}
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={entryKey === entry.key}
-                  onClick={() => setEntryKey(entry.key)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return;
-                    event.preventDefault();
-                    setEntryKey(entry.key);
-                  }}
-                >
-                  <div>
-                    <strong>{entry.title}</strong>
-                    <small>{entry.meta}</small>
+              <div className="entry-picker-select-actions">
+                <button type="button" onClick={selectAll}>全选</button>
+                <button type="button" onClick={clearSelection}>清空</button>
+              </div>
+              {entries.length ? entries.map((entry) => {
+                const isSelected = entryKeys.includes(entry.key);
+                return (
+                  <div
+                    className={`link-row ${isSelected ? 'active' : ''} ${entry.disabled ? 'disabled' : ''}`}
+                    key={entry.key}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    onClick={() => toggleEntry(entry.key)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      toggleEntry(entry.key);
+                    }}
+                  >
+                    <div>
+                      <strong>{entry.title}</strong>
+                      <small>{entry.meta}</small>
+                    </div>
+                    {isSelected && <Check size={15} className="entry-picker-check" />}
                   </div>
-                </div>
-              )) : <div className="small-empty">该素材没有可导入的条目。</div>}
+                );
+              }) : <div className="small-empty">该素材没有可导入的条目。</div>}
             </div>
             <div className="entry-picker-preview">
               <span className="eyebrow">ENTRY PREVIEW</span>
-              {selectedEntry ? (
+              {previewEntry ? (
                 <>
-                  <strong>{selectedEntry.title}</strong>
-                  <small>{selectedEntry.meta}</small>
-                  {selectedEntry.disabled && <span className="entry-picker-disabled-label">此条目不可复用</span>}
-                  <pre>{selectedEntry.preview || '（空内容）'}</pre>
+                  {selectedEntries.length > 1 && <span className="entry-picker-multi-label">已选 {selectedEntries.length} 个条目，预览最后一个</span>}
+                  <strong>{previewEntry.title}</strong>
+                  <small>{previewEntry.meta}</small>
+                  {previewEntry.disabled && <span className="entry-picker-disabled-label">此条目不可复用</span>}
+                  <pre>{previewEntry.preview || '（空内容）'}</pre>
                 </>
-              ) : <div className="small-empty">从左侧选择一个条目查看正文预览。</div>}
+              ) : <div className="small-empty">从左侧选择一个或多个条目查看正文预览。</div>}
             </div>
           </div>
           <footer className="modal-footer">
-            <span>{selectedEntry ? selectedEntry.meta : '请选择一个条目'}</span>
+            <span>{selectedEntries.length ? `已选 ${selectedEntries.length} 个条目` : '请选择条目（可多选）'}</span>
             <div className="entry-picker-actions">
               <Button icon={<ArrowLeft size={14} />} onClick={goBack}>上一步</Button>
               <Button
                 variant="primary"
                 icon={<Check size={15} />}
-                disabled={!selectedEntry || selectedEntry.disabled}
+                disabled={!selectedEntries.length}
                 onClick={confirmImport}
               >
-                添加到当前条目下
+                {selectedEntries.length > 1 ? `添加 ${selectedEntries.length} 个条目到当前条目下` : '添加到当前条目下'}
               </Button>
             </div>
           </footer>

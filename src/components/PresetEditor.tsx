@@ -89,41 +89,55 @@ export default function PresetEditor({ asset, assets, providers, onChange, onTes
     setSelected(identifier);
     setImportOpen(false);
   };
-  const insertPromptBelow = (targetId: string, nextPrompt: Prompt) => {
+  const insertPromptsAt = (targetId: string, nextPrompts: Prompt[], offset: 0 | 1) => {
     if (orderReadOnly) { alert('多角色 prompt_order 请在“原始数据”中新增条目。'); return; }
     const index = orders.findIndex((order) => order.identifier === targetId);
+    const insertIndex = index < 0 ? orders.length : index + offset;
     const nextOrders = [...orders];
-    nextOrders.splice(index < 0 ? nextOrders.length : index + 1, 0, { identifier: nextPrompt.identifier, enabled: true });
+    nextOrders.splice(insertIndex, 0, ...nextPrompts.map((prompt) => ({ identifier: prompt.identifier, enabled: true })));
     onChange({ ...asset, data: {
       ...asset.data,
-      prompts: [...prompts, nextPrompt],
+      prompts: [...prompts, ...nextPrompts],
       prompt_order: mergePromptOrder(asset.data.prompt_order, nextOrders),
     } });
-    setSelected(nextPrompt.identifier);
+    setSelected(nextPrompts[nextPrompts.length - 1].identifier);
   };
   const makePromptIdentifier = (base: string) => {
     const used = new Set(prompts.map((p) => p.identifier));
     return used.has(base) ? 'custom_' + crypto.randomUUID().slice(0, 8) : base;
   };
-  const duplicatePromptBelow = (targetId: string) => {
+  const duplicatePromptAt = (targetId: string, offset: 0 | 1) => {
     const source = prompts.find((prompt) => prompt.identifier === targetId);
     if (!source || source.marker === true) return;
     const copy = JSON.parse(JSON.stringify(source)) as Prompt;
     copy.identifier = makePromptIdentifier('custom_' + crypto.randomUUID().slice(0, 8));
     copy.name = (source.name ?? source.identifier) + ' 副本';
-    insertPromptBelow(targetId, copy);
+    insertPromptsAt(targetId, [copy], offset);
   };
-  const addPromptBelow = (targetId: string) => {
+  const duplicatePromptBelow = (targetId: string) => duplicatePromptAt(targetId, 1);
+  const duplicatePromptAbove = (targetId: string) => duplicatePromptAt(targetId, 0);
+  const addPromptAt = (targetId: string, offset: 0 | 1) => {
     const identifier = makePromptIdentifier('custom_' + crypto.randomUUID().slice(0, 8));
     const next: Prompt = { identifier, name: '自定义条目', role: 'system', content: '', system_prompt: true, injection_position: 0, injection_depth: 0, injection_order: 100, injection_trigger: [] };
-    insertPromptBelow(targetId, next);
+    insertPromptsAt(targetId, [next], offset);
   };
-  const importPromptBelow = (targetId: string, source: Record<string, unknown>) => {
-    const copy = JSON.parse(JSON.stringify(source)) as Prompt;
-    const base = String(source.identifier ?? '').trim();
-    copy.identifier = makePromptIdentifier(base || 'custom_' + crypto.randomUUID().slice(0, 8));
-    if (!copy.name && typeof source.comment === 'string') copy.name = source.comment;
-    insertPromptBelow(targetId, copy);
+  const addPromptBelow = (targetId: string) => addPromptAt(targetId, 1);
+  const addPromptAbove = (targetId: string) => addPromptAt(targetId, 0);
+  const importPromptBelow = (targetId: string, sources: Record<string, unknown>[]) => {
+    if (!sources.length) return;
+    const used = new Set(prompts.map((prompt) => prompt.identifier));
+    const copies: Prompt[] = [];
+    for (const source of sources) {
+      const copy = JSON.parse(JSON.stringify(source)) as Prompt;
+      const base = String(source.identifier ?? '').trim();
+      let identifier = base || 'custom_' + crypto.randomUUID().slice(0, 8);
+      if (used.has(identifier)) identifier = 'custom_' + crypto.randomUUID().slice(0, 8);
+      copy.identifier = identifier;
+      used.add(identifier);
+      if (!copy.name && typeof source.comment === 'string') copy.name = source.comment;
+      copies.push(copy);
+    }
+    insertPromptsAt(targetId, copies, 1);
   };
   const removePrompt = () => {
     if (orderReadOnly) { alert('多角色 prompt_order 请在“原始数据”中删除条目。'); return; }
@@ -150,10 +164,12 @@ export default function PresetEditor({ asset, assets, providers, onChange, onTes
     {importOpen && <Modal title="复用其它预设的条目" onClose={() => setImportOpen(false)} wide><div className="preset-import"><div className="link-column"><div className="link-column-title"><FlaskConical size={15} />来源预设<span>选择要复用的预设</span></div>{sourcePresets.length ? sourcePresets.map((item) => <div className={`preset-source-row ${sourcePreset?.id === item.id ? 'active' : ''}`} key={item.id}><button onClick={() => setImportSourceId(item.id)}><strong>{item.name}</strong><small>{Array.isArray(item.data.prompts) ? item.data.prompts.length : 0} 个条目</small></button></div>) : <div className="small-empty">没有其它预设可复用</div>}</div><div className="link-column"><div className="link-column-title"><Copy size={15} />条目<span>点击复制到当前预设，同名条目自动重命名</span></div>{sourcePrompts.length ? sourcePrompts.map((item) => <div className="link-row" key={item.identifier}><div><strong>{item.name ?? item.identifier}</strong><small>{item.marker ? '内置 Marker · 不可复用' : `${item.role ?? 'system'} · ${String(item.content ?? '').slice(0, 40) || '（空内容）'}`}</small></div><Button icon={<Copy size={13} />} disabled={item.marker} onClick={() => importPrompt(item)}>复制</Button></div>) : <div className="small-empty">该预设没有可复用的条目</div>}</div></div></Modal>}
     {linkOpen && <Modal title="关联正则到预设" onClose={() => setLinkOpen(false)} wide><div className="link-picker"><div className="link-column"><div className="link-column-title"><Braces size={15} />正则<span>可关联多条，导出时写入 extensions.regex_scripts</span></div>{linkableRegex.map((item) => <div className="link-row" key={item.id}><div><strong>{item.name}</strong><small>{String(item.data.scriptName ?? '')}</small></div><Button icon={<Link2 size={13} />} onClick={() => { onLinkRegex(item.id); setLinkOpen(false); }}>关联</Button></div>)}{!linkableRegex.length && <div className="small-empty">没有可关联的正则</div>}</div></div></Modal>}{aiOpen && selectedPrompt && <AiModal title={`预设条目 · ${selectedPrompt.name ?? selectedPrompt.identifier}`} content={selectedPrompt.content ?? ''} providers={providers} onClose={() => setAiOpen(false)} onApply={(value) => updatePrompt('content', value)} />}
     {menu && (() => { const p = prompts.find((item) => item.identifier === menu.identifier); return <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} actions={[
-      { label: '复制这个条目', icon: <Copy size={14} />, disabled: !p || p.marker === true, onClick: () => { duplicatePromptBelow(menu.identifier); setMenu(null); } },
-      { label: '在该条目下新增条目', icon: <Plus size={14} />, onClick: () => { addPromptBelow(menu.identifier); setMenu(null); } },
+      { label: '复制到该条目下方', icon: <Copy size={14} />, disabled: !p || p.marker === true, onClick: () => { duplicatePromptBelow(menu.identifier); setMenu(null); } },
+      { label: '复制到该条目上方', icon: <Copy size={14} />, disabled: !p || p.marker === true, onClick: () => { duplicatePromptAbove(menu.identifier); setMenu(null); } },
+      { label: '在该条目下方新增条目', icon: <Plus size={14} />, onClick: () => { addPromptBelow(menu.identifier); setMenu(null); } },
+      { label: '在该条目上方新增条目', icon: <Plus size={14} />, onClick: () => { addPromptAbove(menu.identifier); setMenu(null); } },
       { label: '添加其它世界书或预设的条目', onClick: () => { setPickerTarget(menu.identifier); setMenu(null); } },
     ]} />; })()}
-    {pickerTarget && <EntryImportPicker assets={assets} currentAssetId={asset.id} onClose={() => setPickerTarget(null)} onImport={(entry) => { importPromptBelow(pickerTarget, entry); setPickerTarget(null); }} />}
+    {pickerTarget && <EntryImportPicker assets={assets} currentAssetId={asset.id} onClose={() => setPickerTarget(null)} onImport={(entries) => { importPromptBelow(pickerTarget, entries); setPickerTarget(null); }} />}
   </div>;
 }

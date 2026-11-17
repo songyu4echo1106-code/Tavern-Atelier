@@ -150,3 +150,9 @@
 .remove-targets{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin-bottom:10px}
 .remove-target-row{padding:8px 13px;border-bottom:1px solid var(--line);font-size:11px;color:#4f5750}
 .remove-target-row:last-child{border-bottom:0}
+
+.entry-picker-check{color:var(--green);flex:none}
+.entry-picker-multi-label{display:block;margin-bottom:6px;padding:3px 8px;border-radius:10px;background:#e6f0ef;color:#2f6b6a;font-size:9px}
+.entry-picker-select-actions{display:flex;gap:6px;margin-bottom:8px}
+.entry-picker-select-actions button{border:1px solid var(--line);border-radius:6px;background:var(--surface);color:#5b635c;font-size:10px;padding:4px 10px;cursor:pointer}
+.entry-picker-select-actions button:hover{border-color:var(--green);color:var(--green)}
