@@ -1,5 +1,11 @@
 export type AssetKind = 'character' | 'lorebook' | 'regex' | 'preset' | 'document';
 
+export interface PresetPromptGroup {
+  id: string;
+  name: string;
+  identifiers: string[];
+}
+
 export interface AssetRelation {
   targetId: string;
   type: 'embedded-book' | 'scoped-regex' | 'preset-regex' | 'related';
@@ -22,6 +28,7 @@ export interface Asset {
   fileHash?: string;
   relations: AssetRelation[];
   groupIds: string[];
+  promptGroups?: PresetPromptGroup[];
   avatar?: { kind: 'local' | 'url'; value: string };
 }
 
@@ -43,6 +50,7 @@ export interface AssetVersion {
   relations: AssetRelation[];
   favorite: boolean;
   groupIds: string[];
+  promptGroups?: PresetPromptGroup[];
   avatar?: { kind: 'local' | 'url'; value: string };
 }
 

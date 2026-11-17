@@ -83,7 +83,7 @@ export class Store {
     this.data.workspace.versions[asset.id] = [{
       id: randomUUID(), version: 1, createdAt: now, message: '初始版本',
       data: clone(asset.data), name: asset.name, tags: clone(asset.tags),
-      summary: asset.summary, relations: clone(asset.relations), favorite: asset.favorite, groupIds: clone(asset.groupIds),
+      summary: asset.summary, relations: clone(asset.relations), favorite: asset.favorite, groupIds: clone(asset.groupIds), promptGroups: clone(asset.promptGroups ?? []),
     }];
     return asset;
   }
@@ -110,7 +110,7 @@ export class Store {
     const record: AssetVersion = {
       id: randomUUID(), version, createdAt: asset.updatedAt, message,
       data: clone(asset.data), name: asset.name, tags: clone(asset.tags),
-      summary: asset.summary, relations: clone(asset.relations), favorite: asset.favorite, groupIds: clone(asset.groupIds),
+      summary: asset.summary, relations: clone(asset.relations), favorite: asset.favorite, groupIds: clone(asset.groupIds), promptGroups: clone(asset.promptGroups ?? []),
     };
     this.data.workspace.versions[asset.id] = [...(this.data.workspace.versions[asset.id] ?? []), record];
     this.persist();
@@ -130,7 +130,7 @@ export class Store {
     if (!asset || !record) throw new Error('目标版本不存在');
     return this.save({
       ...asset, data: clone(record.data), name: record.name ?? asset.name, tags: clone(record.tags ?? asset.tags),
-      summary: record.summary ?? asset.summary, relations: clone(record.relations ?? asset.relations), favorite: record.favorite ?? asset.favorite, groupIds: clone(record.groupIds ?? asset.groupIds),
+      summary: record.summary ?? asset.summary, relations: clone(record.relations ?? asset.relations), favorite: record.favorite ?? asset.favorite, groupIds: clone(record.groupIds ?? asset.groupIds), promptGroups: clone(record.promptGroups ?? asset.promptGroups ?? []),
     }, `恢复自版本 ${version}`);
   }
 
