@@ -1,4 +1,4 @@
-export type AssetKind = 'character' | 'lorebook' | 'regex' | 'preset';
+export type AssetKind = 'character' | 'lorebook' | 'regex' | 'preset' | 'document';
 
 export interface AssetRelation {
   targetId: string;
@@ -17,7 +17,7 @@ export interface Asset {
   updatedAt: string;
   currentVersion: number;
   sourceName?: string;
-  sourceFormat?: 'png' | 'json';
+  sourceFormat?: 'png' | 'json' | 'txt' | 'md' | 'docx';
   originalPath?: string;
   fileHash?: string;
   relations: AssetRelation[];
@@ -107,6 +107,7 @@ export interface AppApi {
     pickAvatar: () => Promise<{ kind: 'local'; value: string } | null>;
     setAvatar: (id: string, avatar: { kind: 'local' | 'url'; value: string } | null) => Promise<Asset>;
     imageData: (path: string) => Promise<string | null>;
+    documentToLorebook: (id: string) => Promise<Asset>;
   };
   providers: {
     list: () => Promise<PublicAiProvider[]>;

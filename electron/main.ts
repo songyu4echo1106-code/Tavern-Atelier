@@ -18,6 +18,7 @@ function registerIpc(): void {
   ipcMain.handle('library:pick-avatar', () => store.pickAvatar());
   ipcMain.handle('library:set-avatar', (_event, id: string, avatar: { kind: 'local' | 'url'; value: string } | null) => store.setAvatar(id, avatar));
   ipcMain.handle('library:image-data', (_event, filePath: string) => store.imageData(filePath));
+  ipcMain.handle('library:document-to-lorebook', (_event, id: string) => store.documentToLorebook(id));
   ipcMain.handle('providers:list', () => store.providers());
   ipcMain.handle('providers:save', (_event, provider: PublicAiProvider & { apiKey?: string }) => store.saveProvider(provider));
   ipcMain.handle('providers:remove', (_event, id: string) => store.removeProvider(id));

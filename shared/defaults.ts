@@ -5,6 +5,7 @@ export const kindNames: Record<AssetKind, string> = {
   lorebook: '世界书',
   regex: '正则',
   preset: 'Chat 预设',
+  document: '其它',
 };
 
 export function createDefaultData(kind: AssetKind): Record<string, unknown> {
@@ -20,6 +21,7 @@ export function createDefaultData(kind: AssetKind): Record<string, unknown> {
     };
   }
   if (kind === 'lorebook') return { entries: {} };
+  if (kind === 'document') return { format: 'txt', text: '' };
   if (kind === 'regex') {
     return {
       id: crypto.randomUUID(), scriptName: '新建正则', findRegex: '', replaceString: '',
@@ -59,7 +61,7 @@ export function createDefaultData(kind: AssetKind): Record<string, unknown> {
 
 export function createEmptyAsset(kind: AssetKind): Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'currentVersion'> {
   return {
-    kind, name: kind === 'character' ? '未命名角色' : `新建${kindNames[kind]}`,
+    kind, name: kind === 'character' ? '未命名角色' : kind === 'document' ? '新建文档' : `新建${kindNames[kind]}`,
     summary: '', tags: [], favorite: false, data: createDefaultData(kind), relations: [], groupIds: [],
   };
 }

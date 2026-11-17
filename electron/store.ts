@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createEmptyAsset, kindNames } from '../shared/defaults';
 import { cardData, characterName, toV2Card } from '../shared/card';
 import { fileHash, readCharacterPng, writeCharacterPng } from './png';
+import { documentFormat, readDocumentText, textToLorebookEntries } from './document';
 import type { AiProvider, Asset, AssetGroup, AssetKind, AssetVersion, ImportResult, PublicAiProvider, TestRun, WorkspaceData } from '../shared/types';
 
 interface PersistedData {
@@ -182,7 +183,7 @@ export class Store {
     return related;
   }
 
-  private importBuffer(filename: string, buffer: Buffer): { imported: Asset[]; warnings: string[] } {
+  private async importBuffer(filename: string, buffer: Buffer): Promise<{ imported: Asset[]; warnings: string[] }> {
     const imported: Asset[] = [];
     const warnings: string[] = [];
     const hash = fileHash(buffer);
@@ -192,6 +193,20 @@ export class Store {
     }
     const ext = path.extname(filename).toLowerCase();
     try {
+      const docFormat = documentFormat(filename);
+      if (docFormat) {
+        const { text } = await readDocumentText(filename, buffer);
+        const originalExt = docFormat === 'docx' ? '.docx' : docFormat === 'md' ? '.md' : '.txt';
+        const originalPath = path.join(this.originals, `${hash}${originalExt}`);
+        fs.writeFileSync(originalPath, buffer);
+        const asset = this.addAsset({
+          kind: 'document', name: path.parse(filename).name || '未命名文档', summary: '', tags: ['文档'], favorite: false,
+          data: { format: docFormat, text }, sourceName: path.basename(filename), sourceFormat: docFormat,
+          originalPath, fileHash: hash, relations: [],
+        });
+        imported.push(asset);
+        return { imported, warnings };
+      }
       const isPng = ext === '.png';
       if (!isPng && ext !== '.json') throw new Error('不支持的文件类型，仅支持 PNG 或 JSON');
       const parsed = isPng ? readCharacterPng(buffer) : { data: JSON.parse(buffer.toString('utf8').replace(/^\uFEFF/, '')) as Record<string, unknown>, warnings: [] };
@@ -229,13 +244,13 @@ export class Store {
   async importFiles(): Promise<ImportResult | null> {
     const selected = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: '酒馆素材', extensions: ['json', 'png'] }],
+      filters: [{ name: '酒馆素材与文档', extensions: ['json', 'png', 'txt', 'md', 'docx'] }],
     });
     if (selected.canceled) return null;
     const imported: Asset[] = [];
     const warnings: string[] = [];
     for (const filename of selected.filePaths) {
-      const result = this.importBuffer(filename, fs.readFileSync(filename));
+      const result = await this.importBuffer(filename, fs.readFileSync(filename));
       imported.push(...result.imported);
       warnings.push(...result.warnings);
     }
@@ -243,11 +258,11 @@ export class Store {
     return { imported: clone(imported), warnings };
   }
 
-  importBlobs(files: { name: string; data: string }[]): ImportResult {
+  async importBlobs(files: { name: string; data: string }[]): Promise<ImportResult> {
     const imported: Asset[] = [];
     const warnings: string[] = [];
     for (const file of files) {
-      const result = this.importBuffer(file.name, Buffer.from(file.data, 'base64'));
+      const result = await this.importBuffer(file.name, Buffer.from(file.data, 'base64'));
       imported.push(...result.imported);
       warnings.push(...result.warnings);
     }
@@ -280,6 +295,21 @@ export class Store {
       fs.writeFileSync(selected.filePath, JSON.stringify(data, null, 2), 'utf8');
     }
     return selected.filePath;
+  }
+
+  documentToLorebook(id: string): Asset {
+    const asset = this.data.workspace.assets.find((item) => item.id === id);
+    if (!asset || asset.kind !== 'document') throw new Error('文档素材不存在');
+    const text = String(asset.data.text ?? '').trim();
+    if (!text) throw new Error('该文档没有可转换的文字内容');
+    const lorebook = this.addAsset({
+      kind: 'lorebook', name: asset.name, summary: `由文档“${asset.name}”转换`,
+      tags: ['文档转换'], favorite: false, data: textToLorebookEntries(text),
+      relations: [{ targetId: asset.id, type: 'related' }],
+    });
+    asset.relations = [...asset.relations, { targetId: lorebook.id, type: 'related' }];
+    this.persist();
+    return clone(lorebook);
   }
 
   async pickAvatar(): Promise<{ kind: 'local'; value: string } | null> {

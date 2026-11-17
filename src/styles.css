@@ -127,3 +127,12 @@
 .entry-picker-asset-row{padding:12px 8px;border-radius:7px;cursor:pointer;transition:background .15s}
 .entry-picker-asset-row:hover{background:#eef3ef}
 .entry-picker-actions{display:flex;align-items:center;gap:8px}
+
+/* Document editor */
+.document-editor{padding:28px 34px 50px;overflow:auto;max-width:1000px;margin:0 auto}
+.document-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.document-format-badge{font:600 10px/1 "Consolas",monospace;letter-spacing:1px;color:#2f6b6a;background:#e6f0ef;border:1px solid #cddfd8;border-radius:6px;padding:5px 9px}
+.document-meta{font-size:10px;color:var(--muted)}
+.document-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.document-text{min-height:420px;font:13px/1.8 "Consolas","Microsoft YaHei",monospace;resize:vertical;background:#fffefb}
+.document-note{font-size:10px;color:var(--muted);line-height:1.7;background:#f0f0e9;border-radius:8px;padding:10px 12px;margin-top:12px}

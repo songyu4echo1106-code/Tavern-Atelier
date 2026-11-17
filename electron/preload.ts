@@ -14,6 +14,7 @@ const api: AppApi = {
     pickAvatar: () => ipcRenderer.invoke('library:pick-avatar'),
     setAvatar: (id, avatar) => ipcRenderer.invoke('library:set-avatar', id, avatar),
     imageData: (path) => ipcRenderer.invoke('library:image-data', path),
+    documentToLorebook: (id) => ipcRenderer.invoke('library:document-to-lorebook', id),
   },
   providers: {
     list: () => ipcRenderer.invoke('providers:list'),

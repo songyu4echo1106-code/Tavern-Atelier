@@ -1,10 +1,10 @@
-import { BookOpen, Braces, Clock3, FilePlus2, Folder, FolderPlus, Import, LayoutList, MessagesSquare, Pencil, Plus, Search, Trash2, UserRound, Fish } from 'lucide-react';
+import { BookOpen, Braces, Clock3, FilePlus2, FileText, Folder, FolderPlus, Import, LayoutList, MessagesSquare, Pencil, Plus, Search, Trash2, UserRound, Fish } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { kindNames } from '../../shared/defaults';
 import type { Asset, AssetGroup, AssetKind } from '../../shared/types';
 import { Button, Modal } from './UI';
 
-const icons = { character: UserRound, lorebook: BookOpen, regex: Braces, preset: MessagesSquare };
+const icons = { character: UserRound, lorebook: BookOpen, regex: Braces, preset: MessagesSquare, document: FileText };
 
 function CardVisual({ asset, show }: { asset: Asset; show: boolean }) {
   const Icon = icons[asset.kind];
