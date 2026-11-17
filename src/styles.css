@@ -136,3 +136,7 @@
 .document-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
 .document-text{min-height:420px;font:13px/1.8 "Consolas","Microsoft YaHei",monospace;resize:vertical;background:#fffefb}
 .document-note{font-size:10px;color:var(--muted);line-height:1.7;background:#f0f0e9;border-radius:8px;padding:10px 12px;margin-top:12px}
+
+.asset-summary-btn{position:absolute;right:78px;top:14px;width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:#fffefb;color:#8a9088;display:grid;place-items:center;opacity:0;transition:opacity .15s}
+.asset-card:hover .asset-summary-btn{opacity:1}
+.asset-summary-btn:hover{color:var(--green);border-color:#b6c6b8}
