@@ -140,3 +140,13 @@
 .asset-summary-btn{position:absolute;right:78px;top:14px;width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:#fffefb;color:#8a9088;display:grid;place-items:center;opacity:0;transition:opacity .15s}
 .asset-card:hover .asset-summary-btn{opacity:1}
 .asset-summary-btn:hover{color:var(--green);border-color:#b6c6b8}
+
+.selection-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:9px 13px;margin:0 0 16px}
+.selection-count{font-size:11px;color:#4f5750;font-weight:650}
+.selection-actions{display:flex;align-items:center;gap:8px}
+.asset-card.selectable{cursor:pointer}
+.asset-select{position:absolute;left:14px;top:14px;width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:#fffefb;color:#fff;display:grid;place-items:center;z-index:2}
+.asset-select.checked{background:var(--green);border-color:var(--green)}
+.remove-targets{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin-bottom:10px}
+.remove-target-row{padding:8px 13px;border-bottom:1px solid var(--line);font-size:11px;color:#4f5750}
+.remove-target-row:last-child{border-bottom:0}
