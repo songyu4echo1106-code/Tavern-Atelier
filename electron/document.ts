@@ -49,25 +49,22 @@ export async function readDocumentText(filename: string, buffer: Buffer): Promis
   return { format, text: buffer.toString('utf8').replace(/^\uFEFF/, '') };
 }
 
-export function textToLorebookEntries(text: string): Record<string, unknown> {
-  const blocks = text.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
-  const chunks = blocks.length > 1 ? blocks : text.split('\n').map((line) => line.trim()).filter(Boolean);
-  const entries: Record<string, Record<string, unknown>> = {};
-  chunks.forEach((chunk, index) => {
-    const firstLine = chunk.split('\n').find((line) => line.trim()) ?? '';
-    entries[String(index)] = {
-      uid: index,
+export function textToLorebookEntries(text: string, title?: string): Record<string, unknown> {
+  const firstLine = text.split('\n').find((line) => line.trim()) ?? '';
+  const entries: Record<string, Record<string, unknown>> = {
+    '0': {
+      uid: 0,
       key: [],
       keysecondary: [],
-      content: chunk,
-      comment: firstLine.slice(0, 40) || `段落 ${index + 1}`,
+      content: text,
+      comment: (title && title.trim()) || firstLine.slice(0, 40) || '文档条目',
       constant: false,
       selective: false,
-      order: 100 + index,
+      order: 100,
       position: 0,
       disable: false,
       extensions: { depth: 4, role: 0 },
-    };
-  });
+    },
+  };
   return { entries };
 }

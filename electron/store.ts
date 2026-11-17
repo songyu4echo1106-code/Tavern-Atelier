@@ -337,7 +337,7 @@ export class Store {
     if (!text) throw new Error('该文档没有可转换的文字内容');
     const lorebook = this.addAsset({
       kind: 'lorebook', name: asset.name, summary: `由文档“${asset.name}”转换`,
-      tags: ['文档转换'], favorite: false, data: textToLorebookEntries(text),
+      tags: ['文档转换'], favorite: false, data: textToLorebookEntries(text, asset.name),
       relations: [{ targetId: asset.id, type: 'related' }],
     });
     asset.relations = [...asset.relations, { targetId: lorebook.id, type: 'related' }];
