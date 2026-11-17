@@ -1,3 +1,4 @@
+# 暂未开发完成
 # 酒馆工坊 · Tavern Atelier
 
 面向 SillyTavern 创作者的本地优先桌面工作台。当前仓库是首个可运行 MVP，不是 SillyTavern 的完整复刻。
