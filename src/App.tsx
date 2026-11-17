@@ -138,12 +138,12 @@ export default function App() {
     finally { setSaving(false); }
   };
   const relatedOf = (asset: Asset) => asset.relations
-    .filter((relation) => relation.type === 'embedded-book' || relation.type === 'scoped-regex')
+    .filter((relation) => relation.type === 'embedded-book' || relation.type === 'scoped-regex' || relation.type === 'preset-regex')
     .flatMap((relation) => { const item = workspace.assets.find((asset) => asset.id === relation.targetId); return item ? [item] : []; });
   const relatedAssets = deleteTarget ? relatedOf(deleteTarget) : [];
   const requestDelete = (asset: Asset) => {
     const related = relatedOf(asset);
-    if (asset.kind === 'character' && related.length > 0) {
+    if ((asset.kind === 'character' || asset.kind === 'preset') && related.length > 0) {
       setRemoveChecked([]);
       setDeleteTarget(asset);
     } else if (confirm(`确定删除“${asset.name}”？原始导入文件会保留，但素材与版本记录将从库中移除。`)) {

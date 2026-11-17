@@ -41,6 +41,29 @@ export class Store {
       asset.groupIds = Array.isArray(asset.groupIds) ? asset.groupIds : [];
       if (asset.avatar && (asset.avatar.kind !== 'local' && asset.avatar.kind !== 'url')) delete asset.avatar;
     }
+    // 一次性迁移：把历史遗留的、已失去预设关联的「预设级」正则按来源归组
+    const orphanRegexes = this.data.workspace.assets.filter((asset) =>
+      asset.kind === 'regex' && asset.tags.includes('预设级') && asset.relations.length === 0 && asset.groupIds.length === 0,
+    );
+    if (orphanRegexes.length) {
+      const byOrigin = new Map<string, Asset[]>();
+      for (const item of orphanRegexes) {
+        const match = /提取自预设\s*(.+)$/.exec(item.summary);
+        const origin = match ? match[1].trim() : '历史正则';
+        const bucket = byOrigin.get(origin) ?? [];
+        bucket.push(item);
+        byOrigin.set(origin, bucket);
+      }
+      for (const [origin, items] of byOrigin) {
+        const groupId = this.ensureGroup(origin);
+        for (const item of items) {
+          item.groupIds = [...item.groupIds, groupId];
+          const first = this.data.workspace.versions[item.id]?.[0];
+          if (first) first.groupIds = clone(item.groupIds);
+        }
+      }
+      this.persist();
+    }
   }
 
   private persist(): void {
@@ -233,7 +256,17 @@ export class Store {
         }
         this.data.workspace.versions[asset.id][0].relations = clone(asset.relations);
       }
-      if (kind === 'preset') imported.push(...this.extractPresetRelated(asset));
+      if (kind === 'preset') {
+        const related = this.extractPresetRelated(asset);
+        imported.push(...related);
+        const groupId = this.ensureGroup(asset.name);
+        if (groupId) {
+          asset.groupIds = [...asset.groupIds, groupId];
+          for (const item of related) item.groupIds = [...item.groupIds, groupId];
+          this.data.workspace.versions[asset.id][0].groupIds = clone(asset.groupIds);
+          for (const item of related) this.data.workspace.versions[item.id][0].groupIds = clone(item.groupIds);
+        }
+      }
       warnings.push(...parsed.warnings);
     } catch (error) {
       warnings.push(`${path.basename(filename)}：${error instanceof Error ? error.message : '导入失败'}`);
