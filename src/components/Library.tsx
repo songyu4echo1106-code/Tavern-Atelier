@@ -1,4 +1,4 @@
-import { BookOpen, Braces, Check, CheckSquare, Clock3, FilePlus2, FileText, Folder, FolderPlus, Import, LayoutList, MessagesSquare, Pencil, Plus, Search, Trash2, UserRound, Fish } from 'lucide-react';
+import { BookOpen, Braces, Check, CheckSquare, Clock3, FilePlus2, FileText, Folder, FolderPlus, Hash, Import, LayoutList, MessagesSquare, Pencil, Plus, Search, Trash2, UserRound, Fish } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { kindNames } from '../../shared/defaults';
 import type { Asset, AssetGroup, AssetKind } from '../../shared/types';
@@ -37,11 +37,13 @@ type LibraryProps = {
   onUpdateSummary: (assetId: string, summary: string) => void;
   onDelete: (asset: Asset) => void;
   onDeleteMany: (assetIds: string[]) => void;
+  tokenTotal: number;
+  tokenAssetCount: number;
 };
 
 type NameModal = { mode: 'create' } | { mode: 'rename'; groupId: string; name: string };
 
-export default function Library({ assets, groups, initialKind, onOpen, onNew, onImport, onCreateGroup, onRenameGroup, onRemoveGroup, onUpdateGroups, onUpdateSummary, onDelete, onDeleteMany }: LibraryProps) {
+export default function Library({ assets, groups, initialKind, onOpen, onNew, onImport, onCreateGroup, onRenameGroup, onRemoveGroup, onUpdateGroups, onUpdateSummary, onDelete, onDeleteMany, tokenTotal, tokenAssetCount }: LibraryProps) {
   const [kind, setKind] = useState<AssetKind | 'all'>(initialKind);
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | 'all' | 'ungrouped'>('all');
@@ -89,7 +91,7 @@ export default function Library({ assets, groups, initialKind, onOpen, onNew, on
   const deleteSelected = () => { onDeleteMany(selectedIds); setSelectedIds([]); };
 
   return <div className="page library-page">
-    <div className="page-heading"><div><span className="eyebrow">LOCAL LIBRARY</span><h1>{title}</h1><p>所有创作都留在这台设备上，按你的节奏慢慢打磨。</p></div><div className="heading-actions"><Button icon={<Import size={16} />} onClick={onImport}>导入素材</Button><Button variant="primary" icon={<Plus size={16} />} onClick={() => onNew(newKind)}>新建{initialKind === 'all' ? '角色卡' : kindNames[initialKind]}</Button></div></div>
+    <div className="page-heading"><div><span className="eyebrow">LOCAL LIBRARY</span><h1>{title}</h1><p>所有创作都留在这台设备上，按你的节奏慢慢打磨。</p></div><div className="heading-actions"><div className="token-stat" title={`统计除“其它”外的素材内容 token（估算值） · 共 ${tokenAssetCount} 份素材`}><Hash size={14} /><span>TOKEN</span><strong>{tokenTotal.toLocaleString('zh-CN')}</strong></div><Button icon={<Import size={16} />} onClick={onImport}>导入素材</Button><Button variant="primary" icon={<Plus size={16} />} onClick={() => onNew(newKind)}>新建{initialKind === 'all' ? '角色卡' : kindNames[initialKind]}</Button></div></div>
     {initialKind === 'all' && <div className="stat-strip">{(Object.keys(kindNames) as AssetKind[]).map((item) => { const Icon = icons[item]; return <button key={item} onClick={() => setKind(item)}><Icon size={18} /><span>{kindNames[item]}</span><strong>{assets.filter((asset) => asset.kind === item).length}</strong></button>; })}<div className="local-stat"><span className="status-dot" />本地素材库已就绪</div></div>}
     <div className="library-toolbar"><div className="filter-tabs"><button className={kind === 'all' ? 'active' : ''} onClick={() => setKind('all')}>全部</button>{(Object.keys(kindNames) as AssetKind[]).map((item) => <button key={item} className={kind === item ? 'active' : ''} onClick={() => setKind(item)}>{kindNames[item]}</button>)}</div><div className="toolbar-right"><button className={`view-toggle ${selectionMode ? 'active' : ''}`} title="多选删除" onClick={() => { setSelectionMode((value) => !value); setSelectedIds([]); }}><CheckSquare size={15} /><span>多选</span></button><button className={`view-toggle ${showImages ? 'active' : ''}`} title={showImages ? '切换为图标展示' : '切换为图片展示'} onClick={() => setShowImages((value) => !value)}>{showImages ? <LayoutList size={15} /> : <img alt="" className="view-toggle-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2' ry='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21'/%3E%3C/svg%3E" />}<span>{showImages ? '图标' : '图片'}</span></button><label className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、标签或简介…" /></label></div></div>
     <div className="group-bar">

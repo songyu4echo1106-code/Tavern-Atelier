@@ -1,4 +1,3 @@
-# 暂未开发完成
 # 酒馆工坊 · Tavern Atelier
 
 面向 SillyTavern 创作者的本地优先桌面工作台。当前仓库是首个可运行 MVP，不是 SillyTavern 的完整复刻。
@@ -37,6 +36,9 @@ Windows PowerShell 如禁止运行 `npm.ps1`，请使用上述 `npm.cmd` 命令�
 - 共用 OpenAI-compatible 服务配置，密钥由 Electron `safeStorage` 加密。
 - AI 建议差异预览，用户确认后才应用。
 - 本地备份与恢复，备份包含原始文件但排除 API 密钥；恢复同 ID 服务时保留本机已有密钥。
+- 预设条目分组：在分组内插入 / 复制 / 导入新条目时自动继承该分组，拖入分组无需精确拖到分组标签。
+- 预设条目多选（Ctrl / Shift）与多选批量拖拽排序，可整体移入分组。
+- 素材库右上角统计全部素材 token（估算值，排除“其它”分类）。
 
 ## 数据位置
 
@@ -75,10 +77,10 @@ npm.cmd run dist:win
 
 产物位于 `release/`：
 
-- `Tavern-Atelier-Setup-0.1.0-x64.exe`：Windows 安装包，用户可选择安装目录，并自动创建开始菜单和桌面快捷方式。
-- `Tavern-Atelier-Portable-0.1.0-x64.zip`：免安装版，解压后运行其中的 `TavernAtelier.exe`，请勿只解压部分文件。
+- `Tavern-Atelier-Setup-0.2.3-x64.exe`：Windows 安装包，用户可选择安装目录，并自动创建开始菜单和桌面快捷方式。
+- `Tavern-Atelier-Portable-0.2.3-x64.zip`：免安装版，解压后运行其中的 `TavernAtelier.exe`，请勿只解压部分文件。
 
-发布时上传这两个 EXE 即可，接收者不需要安装 Node.js、SillyTavern 或本项目依赖。建议同时提供版本号、文件 SHA-256 和更新说明。
+发布时上传这两个文件即可，接收者不需要安装 Node.js、SillyTavern 或本项目依赖。建议同时提供版本号、文件 SHA-256 和更新说明。正式发布时可用 `gh release create` 把 Setup 与 Portable 一并上传到 GitHub Releases。
 
 当前安装包未配置商业代码签名证书，Windows SmartScreen 可能提示“未知发布者”。公开分发前建议使用可信代码签名证书签名，不要引导用户关闭安全功能。
 
