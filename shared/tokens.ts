@@ -1,4 +1,4 @@
-﻿import type { Asset } from './types';
+import type { Asset } from './types';
 
 // 粗略的 token 估算：CJK 字符按 1 token/字，其余按 4 字符/token。
 const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/g;
@@ -18,9 +18,14 @@ function collectStrings(value: unknown, out: string[]): void {
   }
 }
 
+// 统计任意数据中的字符串内容 token（估算值）。
+export function tokenCountOf(value: unknown): number {
+  const strings: string[] = [];
+  collectStrings(value, strings);
+  return strings.reduce((sum, text) => sum + estimateTokenCount(text), 0);
+}
+
 // 统计一份素材的内容 token（估算值），只累计 data 中的字符串内容。
 export function assetTokenCount(asset: Asset): number {
-  const strings: string[] = [];
-  collectStrings(asset.data, strings);
-  return strings.reduce((sum, text) => sum + estimateTokenCount(text), 0);
+  return tokenCountOf(asset.data);
 }

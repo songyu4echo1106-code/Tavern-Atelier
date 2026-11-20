@@ -1,8 +1,7 @@
 import { Archive, BookOpen, Braces, CheckCircle2, ChevronLeft, Download, FileText, FlaskConical, History, LibraryBig, MessagesSquare, MoreHorizontal, Save, Settings as SettingsIcon, Trash2, TriangleAlert, Upload, UserRound, Fish, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { kindNames } from '../shared/defaults';
 import { cardData, updateCardData } from '../shared/card';
-import { assetTokenCount } from '../shared/tokens';
 import type { Asset, AssetKind, ImportResult, PublicAiProvider, WorkspaceData } from '../shared/types';
 import Library from './components/Library';
 import CharacterEditor from './components/CharacterEditor';
@@ -80,16 +79,6 @@ export default function App() {
   const [importReport, setImportReport] = useState<ImportResult | null>(null);
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const notify = (message: string, error = false) => setToast({ message, error });
-  const tokenStats = useMemo(() => {
-    let tokens = 0;
-    let count = 0;
-    for (const asset of workspace.assets) {
-      if (asset.kind === 'document') continue;
-      tokens += assetTokenCount(asset);
-      count += 1;
-    }
-    return { tokens, count };
-  }, [workspace.assets]);
   useEffect(() => { if (!toast) return; const timer = window.setTimeout(() => setToast(null), 4500); return () => window.clearTimeout(timer); }, [toast]);
   const refresh = async () => setWorkspace(await window.tavern.library.list());
   const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -369,7 +358,7 @@ export default function App() {
     onDragLeave={(event) => { event.preventDefault(); event.stopPropagation(); if (event.currentTarget === event.target) setDropActive(false); }}
     onDrop={handleDrop}
   ><aside className="sidebar"><button className="brand" onClick={() => navigate({ name: 'library', kind: 'all' })}><span className="brand-mark"><Fish size={20} /></span><span><strong>宋鱼 · 酒馆工坊</strong><small>SONGYU · TAVERN ATELIER</small></span></button><nav><button className={view.name === 'library' && view.kind === 'all' ? 'active' : ''} onClick={() => navigate({ name: 'library', kind: 'all' })}><LibraryBig size={18} /><span>素材库</span></button><div className="nav-label">创作工作台</div>{navItems.map(({ kind, icon: Icon }) => <button key={kind} className={view.name === 'library' && view.kind === kind || view.name === 'editor' && draft?.kind === kind ? 'active' : ''} onClick={() => navigate({ name: 'library', kind })}><Icon size={18} /><span>{kindNames[kind]}</span><small>{workspace.assets.filter((asset) => asset.kind === kind).length}</small></button>)}<div className="nav-label">调试与设置</div><button className={view.name === 'test' ? 'active' : ''} onClick={() => { setTestPreset(undefined); navigate({ name: 'test' }); }}><FlaskConical size={18} /><span>预设测试台</span></button><button className={view.name === 'settings' ? 'active' : ''} onClick={() => navigate({ name: 'settings' })}><SettingsIcon size={18} /><span>服务与数据</span></button></nav><div className="sidebar-bottom"><div className="local-card"><Archive size={17} /><div><strong>本地优先</strong><span><i className="status-dot" />数据已保存在本机</span></div></div><small>SONGYU ATELIER · v0.2.3</small></div></aside><main className="main-panel">
-    {view.name === 'library' && <Library key={view.kind} assets={view.kind === 'all' ? workspace.assets : workspace.assets.filter((asset) => asset.kind === view.kind)} groups={workspace.groups} initialKind={view.kind} onOpen={open} onNew={create} onImport={importAssets} onCreateGroup={createGroup} onRenameGroup={renameGroup} onRemoveGroup={removeGroup} onUpdateGroups={updateAssetGroups} onUpdateSummary={updateSummary} onDelete={requestDelete} onDeleteMany={requestDeleteMany} tokenTotal={tokenStats.tokens} tokenAssetCount={tokenStats.count} />}
+    {view.name === 'library' && <Library key={view.kind} assets={view.kind === 'all' ? workspace.assets : workspace.assets.filter((asset) => asset.kind === view.kind)} groups={workspace.groups} initialKind={view.kind} onOpen={open} onNew={create} onImport={importAssets} onCreateGroup={createGroup} onRenameGroup={renameGroup} onRemoveGroup={removeGroup} onUpdateGroups={updateAssetGroups} onUpdateSummary={updateSummary} onDelete={requestDelete} onDeleteMany={requestDeleteMany} />}
     {view.name === 'editor' && draft && <div className="editor-page"><header className="editor-header"><Button variant="ghost" icon={<ChevronLeft size={18} />} onClick={() => navigate({ name: 'library', kind: draft.kind })}>返回</Button><div className="editor-title"><span>{kindNames[draft.kind]} · v{draft.currentVersion}</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} disabled={draft.kind === 'character' || draft.kind === 'regex'} /></div><div className="editor-actions"><Button icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>版本</Button><Button icon={<Download size={15} />} onClick={() => exportAsset('json')}>导出 JSON</Button>{draft.kind === 'character' && <Button icon={<Download size={15} />} onClick={() => exportAsset('png')}>导出 PNG</Button>}<Button variant="ghost" icon={<Trash2 size={16} />} onClick={requestRemove} /><Button variant="primary" icon={<Save size={15} />} onClick={save} disabled={saving}>{saving ? '保存中…' : '保存新版本'}</Button><MoreHorizontal size={18} /></div></header>{draft.kind === 'character' && <CharacterEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onLink={linkAsset} onUnlink={unlinkAsset} onPickAvatar={pickAvatar} onSetAvatar={setAvatar} />}{draft.kind === 'lorebook' && <LorebookEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'regex' && <RegexEditor asset={draft} providers={providers} onChange={setDraft} onWriteBack={writeBack} />}{draft.kind === 'preset' && <PresetEditor asset={draft} assets={workspace.assets} providers={providers} onChange={setDraft} onTest={testCurrentPreset} onLinkRegex={linkRegexToPreset} onUnlinkRegex={unlinkRegexFromPreset} />}
 {draft.kind === 'document' && <DocumentEditor asset={draft} onChange={setDraft} onConvert={convertDocumentToLorebook} />}
 </div>}
